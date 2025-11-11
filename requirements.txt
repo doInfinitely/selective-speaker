@@ -1,0 +1,19 @@
+# Selective Speaker Backend - Requirements
+# Install with: pip install -r requirements.txt
+# Or use: pip install -e . (installs from pyproject.toml)
+
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+pydantic-settings>=2.0
+SQLAlchemy>=2.0
+psycopg[binary]>=3.2
+python-dotenv>=1.0
+alembic>=1.13
+httpx>=0.27
+python-multipart>=0.0.9
+loguru>=0.7
+
+# Development dependencies
+pytest>=7.0
+

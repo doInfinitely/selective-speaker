@@ -1,0 +1,18 @@
+{
+  "words": [
+    {"start": 0, "end": 500, "speaker": "SPEAKER_00", "confidence": 0.92, "text": "This"},
+    {"start": 500, "end": 800, "speaker": "SPEAKER_00", "confidence": 0.91, "text": "is"},
+    {"start": 800, "end": 1200, "speaker": "SPEAKER_00", "confidence": 0.93, "text": "my"},
+    {"start": 1200, "end": 1800, "speaker": "SPEAKER_00", "confidence": 0.89, "text": "enrollment"},
+    {"start": 1800, "end": 2400, "speaker": "SPEAKER_00", "confidence": 0.90, "text": "voice"},
+    {"start": 2400, "end": 3000, "speaker": "SPEAKER_00", "confidence": 0.91, "text": "sample"},
+    {"start": 4100, "end": 4600, "speaker": "SPEAKER_00", "confidence": 0.87, "text": "Hello"},
+    {"start": 4700, "end": 5200, "speaker": "SPEAKER_01", "confidence": 0.88, "text": "someone"},
+    {"start": 5300, "end": 5700, "speaker": "SPEAKER_01", "confidence": 0.86, "text": "else"},
+    {"start": 5800, "end": 6300, "speaker": "SPEAKER_00", "confidence": 0.89, "text": "I"},
+    {"start": 6400, "end": 6900, "speaker": "SPEAKER_00", "confidence": 0.90, "text": "said"},
+    {"start": 7000, "end": 7500, "speaker": "SPEAKER_00", "confidence": 0.88, "text": "hello"},
+    {"start": 7600, "end": 8100, "speaker": "SPEAKER_00", "confidence": 0.91, "text": "world"}
+  ]
+}
+
