@@ -17,8 +17,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         
-        // Backend API URL - configured for your network
-        buildConfigField("String", "API_BASE_URL", "\"http://10.10.0.202:8000\"")
+        // Backend API URL - Railway production
+        buildConfigField("String", "API_BASE_URL", "\"https://web-production-f942c.up.railway.app\"")
     }
 
     buildTypes {
