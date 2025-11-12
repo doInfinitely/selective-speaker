@@ -12,16 +12,19 @@ This backend implements a sophisticated selective speaker pipeline:
 
 1. **Enrollment**: User records a ~30-second voice sample
 2. **Continuous Recording**: Android app sends audio chunks via VAD
-3. **Diarization**: Concatenate `[enrollment] + [silence] + [chunk]` → send to AssemblyAI
-4. **Selective Filtering**: Keep only segments matching the enrolled speaker
-5. **Storage**: Save transcripts with timestamps and GPS locations
+3. **Audio Concatenation**: Backend concatenates `[enrollment] + [silence] + [chunk]`
+4. **Diarization**: Upload to AssemblyAI for transcription with speaker labels
+5. **Selective Filtering**: Keep only segments matching the enrolled speaker
+6. **Storage**: Save transcripts with timestamps and GPS locations
 
 ### Key Features
 
 - ✅ **Privacy-First**: Only the enrolled user's speech is transcribed
 - ✅ **High Accuracy**: Combines diarization with enrollment anchoring
-- ✅ **Scalable**: Built on FastAPI with async support
-- ✅ **Production-Ready**: Database models, webhook handling, and testing harness
+- ✅ **Fully Integrated**: Real AssemblyAI API integration with webhooks
+- ✅ **Audio Processing**: Automatic audio concatenation and validation
+- ✅ **Scalable**: Built on FastAPI with async support and background tasks
+- ✅ **Production-Ready**: Database models, webhook handling, and comprehensive testing
 
 ---
 
@@ -86,14 +89,26 @@ cat > .env << EOF
 DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/selective
 ENV=dev
 STORAGE_ROOT=./data
+
+# Diarization settings
 PAD_MS=1000
 ENROLL_DOMINANCE=0.8
 SEGMENT_GAP_MS=500
 SEGMENT_MIN_MS=1000
 SEGMENT_MIN_CHARS=6
-ASSEMBLYAI_WEBHOOK_SECRET=devsecret
+
+# AssemblyAI integration (get your API key from https://www.assemblyai.com/)
+ASSEMBLYAI_API_KEY=your_api_key_here
+ASSEMBLYAI_WEBHOOK_SECRET=your_webhook_secret_here
+WEBHOOK_BASE_URL=http://localhost:8000
+
+# Audio settings
+AUDIO_SAMPLE_RATE=16000
+AUDIO_CHANNELS=1
 EOF
 ```
+
+**Note:** For development without real API calls, you can leave the default values. For production, get your API key from [AssemblyAI](https://www.assemblyai.com/).
 
 ### 3. Start Database
 
@@ -196,6 +211,7 @@ Expected output:
 ### Chunks
 
 - **POST** `/chunks/submit` - Submit audio chunk for transcription
+  - Triggers background processing: concatenation → upload → transcription
 - **GET** `/chunks/{chunk_id}` - Get chunk details and segments
 
 ### Utterances (Timeline)
@@ -207,6 +223,8 @@ Expected output:
 ### Webhooks
 
 - **POST** `/webhooks/assemblyai` - AssemblyAI transcription callback
+  - Automatically called by AssemblyAI when transcription completes
+  - Processes diarization and stores user segments
 
 ---
 
@@ -271,7 +289,29 @@ Configure via `.env` file or environment variables:
 
 ## 🛠️ Production Deployment
 
-### TODO for Production
+### ✅ Ready for Production
+
+1. **AssemblyAI Integration**: ✅ Fully implemented
+   - Real API calls with upload and transcription
+   - Webhook signature verification
+   - Custom metadata passing
+   - Background task processing
+
+2. **Audio Processing**: ✅ Implemented
+   - Audio concatenation with silence padding
+   - Format validation and compatibility checking
+   - WAV file handling
+
+3. **Logging**: ✅ Configured
+   - Loguru for structured logging
+   - Request/response tracking
+   - Error logging with stack traces
+
+4. **Background Tasks**: ✅ Implemented
+   - FastAPI BackgroundTasks for async processing
+   - Audio upload and transcription queueing
+
+### 🔄 TODO for Production Scale
 
 1. **Authentication**:
    - Implement Firebase Auth token verification
@@ -281,34 +321,34 @@ Configure via `.env` file or environment variables:
    - Replace local storage with S3/GCS
    - Implement presigned URL generation for uploads
 
-3. **Job Queue**:
-   - Add Celery + Redis or Cloud Tasks for async processing
-   - Queue transcription jobs and geocoding
+3. **Job Queue** (Optional - FastAPI BackgroundTasks may be sufficient):
+   - Add Celery + Redis for heavy processing
+   - Or use Cloud Tasks for serverless scaling
 
-4. **AssemblyAI Integration**:
-   - Implement real API calls in `assemblyai_client.py`
-   - Enable webhook signature verification
-   - Handle async transcription polling
-
-5. **Geocoding**:
+4. **Geocoding**:
    - Integrate Google Geocoding API or Mapbox
    - Cache results to reduce API calls
 
-6. **Monitoring**:
+5. **Monitoring**:
    - Add Sentry for error tracking
-   - Set up logging with Loguru
+   - Set up centralized logging (CloudWatch/Stackdriver)
    - Implement health checks and metrics
 
-7. **Database**:
+6. **Database**:
    - Set up Alembic migrations properly
    - Add indexes for performance
    - Enable connection pooling
 
-8. **Security**:
+7. **Security**:
    - Enable HTTPS/TLS
    - Implement rate limiting
    - Add CORS configuration
    - Use secrets manager for credentials
+
+8. **Cost Optimization**:
+   - Monitor AssemblyAI usage
+   - Implement caching strategies
+   - Optimize chunk sizes
 
 ---
 
@@ -396,8 +436,17 @@ uvicorn app.main:app --reload --port 8001
 
 ## 🎓 Learn More
 
+### Documentation
+
+- **[ASSEMBLYAI_INTEGRATION.md](ASSEMBLYAI_INTEGRATION.md)** - Complete guide to AssemblyAI integration
+- **[PROJECT_SUMMARY.md](PROJECT_SUMMARY.md)** - Architecture overview and design decisions
+- **[GETTING_STARTED.md](GETTING_STARTED.md)** - 5-minute quick start guide
+
+### External Resources
+
 - [FastAPI Documentation](https://fastapi.tiangolo.com/)
 - [AssemblyAI API](https://www.assemblyai.com/docs)
+- [AssemblyAI Speaker Diarization](https://www.assemblyai.com/docs/audio-intelligence/speaker-diarization)
 - [SQLAlchemy 2.0](https://docs.sqlalchemy.org/en/20/)
 - [Pydantic V2](https://docs.pydantic.dev/latest/)
 

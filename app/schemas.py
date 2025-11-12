@@ -32,6 +32,7 @@ class SegmentOut(BaseModel):
 
 
 class UtteranceBubble(BaseModel):
+    id: int  # Utterance ID for audio playback
     chunk_id: int
     start_ms: int
     end_ms: int

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "262668184505",
+    "project_id": "selective-speaker",
+    "storage_bucket": "selective-speaker.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:262668184505:android:701f3d02437c8b1cfa6468",
+        "android_client_info": {
+          "package_name": "ai.gauntlet.selectivespeaker"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "262668184505-b1rnb6r62udk7c5uhf41jh6jh7rqbs8f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAXBybZqSIlqtnvXWnAP9JbNhT7yB5InPo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "262668184505-b1rnb6r62udk7c5uhf41jh6jh7rqbs8f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

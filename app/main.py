@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routes import enrollment, chunks, utterances, webhooks
+from app.routes import enrollment, chunks, utterances, webhooks, audio
 
 app = FastAPI(title="Selective Speaker Backend", version="0.1.0")
 
@@ -7,6 +7,7 @@ app.include_router(enrollment.router)
 app.include_router(chunks.router)
 app.include_router(utterances.router)
 app.include_router(webhooks.router)
+app.include_router(audio.router)
 
 
 @app.get("/")

@@ -1,36 +1,143 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form, Depends
 from sqlalchemy.orm import Session
+from pathlib import Path
+from loguru import logger
+from typing import Optional, Annotated
 from app.db import session_scope
 from app import models, schemas
+from app.storage import local_path, save_uploaded_file
+from app.utils.audio import concatenate_audio_files, WAVInfo
+from app.services.assemblyai_client import upload_audio_file, submit_transcription
+from app.dependencies import get_current_user_uid, get_or_create_user
 
 router = APIRouter(prefix="/chunks", tags=["chunks"])
 
 
+async def process_chunk_transcription(
+    user_id: int,
+    chunk_id: int,
+    chunk_audio_url: str
+):
+    """
+    Background task to process chunk transcription.
+    
+    NEW APPROACH (no concatenation!):
+    1. Upload chunk directly to AssemblyAI
+    2. Submit transcription with diarization
+    3. Webhook will use embeddings to match speakers
+    """
+    try:
+        logger.info(f"Processing transcription for chunk {chunk_id}")
+        
+        # Get chunk file path
+        chunk_path = local_path(chunk_audio_url)
+        
+        # Verify file exists
+        if not chunk_path.exists():
+            logger.error(f"Chunk file not found: {chunk_path}")
+            return
+        
+        logger.info(f"Chunk audio: {chunk_path}")
+        
+        # Upload chunk directly to AssemblyAI (no concatenation!)
+        logger.info(f"Uploading chunk to AssemblyAI")
+        audio_url = await upload_audio_file(chunk_path)
+        
+        # Submit for transcription with diarization
+        logger.info(f"Submitting transcription request")
+        result = await submit_transcription(
+            audio_url=audio_url,
+            user_id=user_id,
+            chunk_id=chunk_id,
+            enrollment_ms=0  # Not used anymore
+        )
+        
+        transcript_id = result.get('id')
+        logger.info(
+            f"Transcription submitted for chunk {chunk_id}: "
+            f"transcript_id={transcript_id}, status={result.get('status')}"
+        )
+        
+        # Store transcript_id in database for webhook lookup
+        with session_scope() as db:
+            chunk = db.query(models.Chunk).filter_by(id=chunk_id).first()
+            if chunk:
+                chunk.transcript_id = transcript_id
+                logger.info(f"Stored transcript_id {transcript_id} for chunk {chunk_id}")
+        
+    except Exception as e:
+        logger.error(f"Error processing chunk {chunk_id}: {e}", exc_info=True)
+
+
+@router.post("/upload")
+async def upload_chunk(
+    file: UploadFile = File(...),
+    device_id: Optional[str] = Form(None),
+    gps_lat: Optional[str] = Form(None),
+    gps_lon: Optional[str] = Form(None),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    user_uid: Annotated[str, Depends(get_current_user_uid)] = None
+):
+    """
+    Upload audio chunk file from mobile app.
+    
+    This endpoint receives the actual audio file and processes it.
+    """
+    try:
+        # Save uploaded file
+        filename = f"chunk_{file.filename}"
+        file_path = save_uploaded_file(file, filename)
+        logger.info(f"Saved uploaded chunk: {filename}")
+        
+        # Convert form data
+        lat = float(gps_lat) if gps_lat else None
+        lon = float(gps_lon) if gps_lon else None
+        
+        # Create chunk request
+        chunk_data = schemas.ChunkSubmit(
+            audio_url=filename,
+            device_id=device_id,
+            gps_lat=lat,
+            gps_lon=lon
+        )
+        
+        # Process like normal submit (pass user_uid)
+        return await submit_chunk(chunk_data, background_tasks, user_uid)
+        
+    except Exception as e:
+        logger.error(f"Error uploading chunk: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
 @router.post("/submit")
-def submit_chunk(payload: schemas.ChunkSubmit):
+async def submit_chunk(
+    payload: schemas.ChunkSubmit, 
+    background_tasks: BackgroundTasks,
+    user_uid: Annotated[str, Depends(get_current_user_uid)] = None
+):
     """
     Submit a recorded audio chunk for transcription.
     
     Flow:
     1. Store chunk metadata in database
-    2. Queue job to concatenate [enrollment audio] + [silence] + [chunk audio]
-    3. Submit to AssemblyAI with diarization enabled
-    4. Include metadata (user_id, chunk_id, enrollment_ms) for webhook processing
+    2. Background task uploads chunk to AssemblyAI
+    3. Submit for transcription with diarization
+    4. AssemblyAI calls webhook when complete with results
     
     Args:
         payload: Chunk data including audio URL, timestamps, and GPS coordinates
+        background_tasks: FastAPI background tasks
     
     Returns:
         Chunk ID and queued status
     """
     with session_scope() as db:
-        # Get current user
-        user = db.query(models.User).filter_by(uid="dev-uid").first()
+        # Get current user from auth token
+        user = db.query(models.User).filter_by(uid=user_uid).first()
         if not user:
-            raise HTTPException(
-                status_code=400,
-                detail="User not found. Please complete enrollment first."
-            )
+            # Create user if doesn't exist
+            get_or_create_user(user_uid)
+            user = db.query(models.User).filter_by(uid=user_uid).first()
         
         # Verify user has enrollment
         enrollment = db.query(models.Enrollment).filter_by(user_id=user.id).order_by(
@@ -55,23 +162,25 @@ def submit_chunk(payload: schemas.ChunkSubmit):
         db.add(chunk)
         db.flush()
         
-        # TODO: In production, enqueue STT job here
-        # Job should:
-        # 1. Concatenate enrollment audio + silence pad + chunk audio
-        # 2. Upload to AssemblyAI with metadata:
-        #    {user_id, chunk_id, enrollment_ms}
-        # 3. Register webhook URL for completion callback
+        chunk_id = chunk.id
+        enrollment_ms = enrollment.duration_ms
         
-        # TODO: If GPS coordinates provided, queue geocoding job
-        if payload.gps_lat is not None and payload.gps_lon is not None:
-            # Queue geocoding job
-            pass
+        # Queue transcription processing in background
+        background_tasks.add_task(
+            process_chunk_transcription,
+            user_id=user.id,
+            chunk_id=chunk_id,
+            chunk_audio_url=payload.audio_url
+        )
+        
+        logger.info(f"Chunk {chunk_id} submitted for transcription")
         
         return {
             "status": "queued",
-            "chunk_id": chunk.id,
+            "chunk_id": chunk_id,
             "enrollment_id": enrollment.id,
-            "enrollment_ms": enrollment.duration_ms
+            "enrollment_ms": enrollment_ms,
+            "message": "Chunk queued for transcription"
         }
 
 

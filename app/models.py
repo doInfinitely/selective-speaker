@@ -24,6 +24,7 @@ class Enrollment(Base):
     duration_ms: Mapped[int] = mapped_column(Integer)
     phrase_text: Mapped[Optional[str]] = mapped_column(Text)
     edit_distance: Mapped[Optional[int]] = mapped_column(Integer)
+    embedding_vector: Mapped[Optional[str]] = mapped_column(Text)  # JSON-encoded numpy array
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     user: Mapped["User"] = relationship(back_populates="enrollments")
@@ -39,6 +40,7 @@ class Chunk(Base):
     end_ts: Mapped[Optional[datetime]] = mapped_column(DateTime)
     gps_lat: Mapped[Optional[float]] = mapped_column(Float)
     gps_lon: Mapped[Optional[float]] = mapped_column(Float)
+    transcript_id: Mapped[Optional[str]] = mapped_column(String(128), index=True)  # AssemblyAI transcript ID
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
-from typing import Optional, List
+from typing import Optional, List, Annotated
 from app.db import session_scope
 from app import models, schemas
+from app.dependencies import get_current_user_uid
 
 router = APIRouter(prefix="/utterances", tags=["utterances"])
 
@@ -11,7 +12,8 @@ router = APIRouter(prefix="/utterances", tags=["utterances"])
 @router.get("")
 def list_utterances(
     limit: int = Query(50, ge=1, le=200),
-    before_id: Optional[int] = None
+    before_id: Optional[int] = None,
+    user_uid: Annotated[str, Depends(get_current_user_uid)] = None
 ):
     """
     List user's utterances (kept segments) in timeline format.
@@ -27,12 +29,17 @@ def list_utterances(
         List of utterance bubbles with text, timestamps, and locations
     """
     with session_scope() as db:
-        # For demo, we flatten kept segments as bubbles with chunk/device/address
-        # Join segments with chunks to get metadata
+        # Get user
+        user = db.query(models.User).filter_by(uid=user_uid).first()
+        if not user:
+            return {"items": [], "count": 0, "has_more": False}
+        
+        # Join segments with chunks to get metadata, filter by user
         query = (
             db.query(models.Segment, models.Chunk)
             .join(models.Chunk, models.Chunk.id == models.Segment.chunk_id)
             .filter(models.Segment.kept == True)
+            .filter(models.Chunk.user_id == user.id)
         )
         
         if before_id is not None:
@@ -47,6 +54,7 @@ def list_utterances(
             addr_row = db.query(models.Location).filter_by(chunk_id=chunk.id).first()
             
             items.append(schemas.UtteranceBubble(
+                id=seg.id,  # Include utterance ID for audio playback
                 chunk_id=chunk.id,
                 start_ms=seg.start_ms,
                 end_ms=seg.end_ms,
@@ -66,7 +74,8 @@ def list_utterances(
 @router.get("/search")
 def search_utterances(
     q: str = Query(..., min_length=1),
-    limit: int = Query(50, ge=1, le=200)
+    limit: int = Query(50, ge=1, le=200),
+    user_uid: Annotated[str, Depends(get_current_user_uid)] = None
 ):
     """
     Search utterances by text content.
@@ -82,11 +91,17 @@ def search_utterances(
         Matching utterances
     """
     with session_scope() as db:
+        # Get user
+        user = db.query(models.User).filter_by(uid=user_uid).first()
+        if not user:
+            return {"items": [], "count": 0}
+        
         # Simple LIKE search (use FTS or Elasticsearch in production)
         query = (
             db.query(models.Segment, models.Chunk)
             .join(models.Chunk, models.Chunk.id == models.Segment.chunk_id)
             .filter(models.Segment.kept == True)
+            .filter(models.Chunk.user_id == user.id)
             .filter(models.Segment.text.ilike(f"%{q}%"))
             .order_by(desc(models.Segment.id))
             .limit(limit)
@@ -99,6 +114,7 @@ def search_utterances(
             addr_row = db.query(models.Location).filter_by(chunk_id=chunk.id).first()
             
             items.append(schemas.UtteranceBubble(
+                id=seg.id,  # Include utterance ID for audio playback
                 chunk_id=chunk.id,
                 start_ms=seg.start_ms,
                 end_ms=seg.end_ms,
