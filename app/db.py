@@ -3,7 +3,12 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from contextlib import contextmanager
 from app.config import settings
 
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+# Fix Railway's DATABASE_URL format (postgresql:// -> postgresql+psycopg://)
+database_url = settings.DATABASE_URL
+if database_url.startswith("postgresql://"):
+    database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+
+engine = create_engine(database_url, pool_pre_ping=True)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
