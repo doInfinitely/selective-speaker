@@ -8,6 +8,7 @@ from loguru import logger
 from pathlib import Path
 from typing import Optional
 import os
+import json
 
 
 _firebase_app = None
@@ -33,24 +34,34 @@ def initialize_firebase():
     except ValueError:
         pass
     
-    # Get service account key path from environment
+    # Check for JSON string first (Railway/production), then file path (local dev)
+    service_account_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON')
     service_account_path = os.getenv('FIREBASE_SERVICE_ACCOUNT_KEY')
     
-    if not service_account_path:
-        logger.warning("FIREBASE_SERVICE_ACCOUNT_KEY not set - Firebase auth disabled for development")
-        return None
-    
-    service_account_file = Path(service_account_path)
-    
-    if not service_account_file.exists():
-        logger.error(f"Firebase service account file not found: {service_account_path}")
-        return None
-    
     try:
-        cred = credentials.Certificate(str(service_account_file))
-        _firebase_app = firebase_admin.initialize_app(cred)
-        logger.info("Firebase initialized successfully")
-        return _firebase_app
+        if service_account_json:
+            # Load from JSON string (Railway/production)
+            cred_dict = json.loads(service_account_json)
+            cred = credentials.Certificate(cred_dict)
+            _firebase_app = firebase_admin.initialize_app(cred)
+            logger.info("Firebase initialized from JSON environment variable")
+            return _firebase_app
+        elif service_account_path:
+            # Load from file path (local development)
+            service_account_file = Path(service_account_path)
+            if not service_account_file.exists():
+                logger.error(f"Firebase service account file not found: {service_account_path}")
+                return None
+            cred = credentials.Certificate(str(service_account_file))
+            _firebase_app = firebase_admin.initialize_app(cred)
+            logger.info("Firebase initialized from file path")
+            return _firebase_app
+        else:
+            logger.warning("Neither FIREBASE_SERVICE_ACCOUNT_JSON nor FIREBASE_SERVICE_ACCOUNT_KEY set - Firebase auth disabled")
+            return None
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON: {e}")
+        return None
     except Exception as e:
         logger.error(f"Failed to initialize Firebase: {e}")
         return None
