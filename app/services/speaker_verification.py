@@ -44,10 +44,14 @@ def get_inference_pipeline():
         
         # Use Inference API instead of raw Model (handles version mismatches better)
         from pyannote.audio import Inference
+        import torch
+        
         try:
             logger.info("Creating Inference object for pyannote/embedding...")
-            _inference_pipeline = Inference("pyannote/embedding")
-            logger.info(f"Inference object created: {type(_inference_pipeline)}")
+            # Explicitly specify CPU device (Railway doesn't have GPU)
+            device = torch.device("cpu")
+            _inference_pipeline = Inference("pyannote/embedding", device=device)
+            logger.info(f"Inference object created: {type(_inference_pipeline)} on device {device}")
         except Exception as e:
             logger.error(f"Failed to create Inference object: {e}", exc_info=True)
             raise
