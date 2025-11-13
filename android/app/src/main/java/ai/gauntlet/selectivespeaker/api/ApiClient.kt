@@ -2,6 +2,7 @@ package ai.gauntlet.selectivespeaker.api
 
 import ai.gauntlet.selectivespeaker.BuildConfig
 import ai.gauntlet.selectivespeaker.auth.AuthManager
+import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -117,8 +118,10 @@ object ApiClient {
     private val authInterceptor = Interceptor { chain ->
         val originalRequest = chain.request()
         
-        // Get the Firebase ID token (cached, might be slightly outdated but usually fine)
-        val token = AuthManager.getCachedIdToken()
+        // Try to get fresh token (this will refresh if expired)
+        val token = runBlocking {
+            AuthManager.getIdToken(forceRefresh = false)
+        }
         
         // Add Authorization header if token exists
         val newRequest = if (token != null) {
