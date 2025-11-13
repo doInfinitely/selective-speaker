@@ -42,15 +42,21 @@ def get_inference_pipeline():
             logger.error(f"HuggingFace login failed: {e}")
             raise
         
-        # Use Inference API instead of raw Model (handles version mismatches better)
-        from pyannote.audio import Inference
+        # Load model first, then create Inference
+        from pyannote.audio import Inference, Model
         import torch
         
         try:
-            logger.info("Creating Inference object for pyannote/embedding...")
+            logger.info("Loading pyannote/embedding model...")
             # Explicitly specify CPU device (Railway doesn't have GPU)
             device = torch.device("cpu")
-            _inference_pipeline = Inference("pyannote/embedding", device=device)
+            
+            # Load the model first
+            model = Model.from_pretrained("pyannote/embedding")
+            logger.info(f"Model loaded: {type(model)}")
+            
+            # Create Inference from the loaded model
+            _inference_pipeline = Inference(model, device=device)
             logger.info(f"Inference object created: {type(_inference_pipeline)} on device {device}")
         except Exception as e:
             logger.error(f"Failed to create Inference object: {e}", exc_info=True)
