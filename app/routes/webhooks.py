@@ -86,6 +86,17 @@ async def assemblyai_webhook(request: Request):
         user_id = chunk.user_id
         chunk_audio_url = chunk.audio_url
         
+        # Check if this chunk has already been processed (idempotency check)
+        existing_segments = lookup_db.query(models.Segment).filter_by(chunk_id=chunk_id).count()
+        if existing_segments > 0:
+            logger.warning(f"Chunk {chunk_id} already has {existing_segments} segments - skipping duplicate webhook")
+            return {
+                "status": "already_processed",
+                "chunk_id": chunk_id,
+                "existing_segments": existing_segments,
+                "transcript_id": transcript_id
+            }
+        
         # Get enrollment to retrieve embedding
         user = lookup_db.query(models.User).filter_by(id=user_id).first()
         enrollment = lookup_db.query(models.Enrollment).filter_by(user_id=user_id).order_by(

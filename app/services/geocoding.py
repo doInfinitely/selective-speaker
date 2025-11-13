@@ -41,20 +41,48 @@ async def reverse_geocode(lat: float, lon: float) -> Optional[str]:
             if response.status_code == 200:
                 data = response.json()
                 
-                # Try to get a concise address
-                address = data.get("display_name")
-                if address:
-                    # Nominatim returns very long addresses, let's shorten them
-                    # Example: "123 Main St, City, County, State, Country"
-                    parts = address.split(", ")
-                    
-                    # Take the first 3-4 most relevant parts
-                    if len(parts) > 4:
-                        address = ", ".join(parts[:4])
-                    
+                # Try to get structured address for better formatting
+                address_data = data.get("address", {})
+                
+                # Build a clean address from structured data
+                parts = []
+                
+                # Add house number and road together (no comma between them)
+                house_number = address_data.get("house_number", "")
+                road = address_data.get("road", "")
+                if house_number and road:
+                    parts.append(f"{house_number} {road}")
+                elif road:
+                    parts.append(road)
+                
+                # Add neighborhood or suburb if available
+                neighborhood = address_data.get("neighbourhood") or address_data.get("suburb")
+                if neighborhood:
+                    parts.append(neighborhood)
+                
+                # Add city
+                city = address_data.get("city") or address_data.get("town") or address_data.get("village")
+                if city:
+                    parts.append(city)
+                
+                # Add state/province
+                state = address_data.get("state")
+                if state:
+                    parts.append(state)
+                
+                if parts:
+                    address = ", ".join(parts[:3])  # Limit to 3 parts for brevity
                     logger.debug(f"Geocoded ({lat}, {lon}) -> {address}")
                     return address
                 else:
+                    # Fallback to display_name if structured data not available
+                    display_name = data.get("display_name")
+                    if display_name:
+                        address_parts = display_name.split(", ")
+                        address = ", ".join(address_parts[:3])
+                        logger.debug(f"Geocoded ({lat}, {lon}) -> {address}")
+                        return address
+                    
                     logger.warning(f"No address found for ({lat}, {lon})")
                     return None
             else:
