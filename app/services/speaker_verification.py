@@ -37,7 +37,7 @@ def get_inference_pipeline():
         from pyannote.audio import Inference
         _inference_pipeline = Inference(
             "pyannote/embedding",
-            use_auth_token=settings.HUGGINGFACE_TOKEN
+            token=settings.HUGGINGFACE_TOKEN
         )
         
         logger.info("Speaker embedding inference pipeline loaded successfully")
