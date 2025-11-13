@@ -60,9 +60,31 @@ def extract_embedding(audio_path: Path) -> np.ndarray:
     
     logger.info(f"Extracting embedding from {audio_path}")
     
-    # Use pyannote Inference API (handles audio loading and preprocessing)
+    # Load audio manually (pyannote's audio loading is broken on Railway)
+    import soundfile as sf
+    import torch
+    
+    waveform, sample_rate = sf.read(str(audio_path))
+    
+    # Convert to torch tensor and ensure correct shape (channel, time)
+    if waveform.ndim == 1:
+        # Mono audio - add channel dimension
+        waveform_tensor = torch.from_numpy(waveform).unsqueeze(0).float()
+    else:
+        # Stereo - take first channel and add dimension
+        waveform_tensor = torch.from_numpy(waveform[:, 0]).unsqueeze(0).float()
+    
+    logger.debug(f"Loaded audio: shape={waveform_tensor.shape}, sample_rate={sample_rate}")
+    
+    # Create audio dict that pyannote expects
+    audio_dict = {
+        "waveform": waveform_tensor,
+        "sample_rate": sample_rate
+    }
+    
+    # Use pyannote Inference API with preloaded audio
     # Returns temporal embeddings (one per sliding window)
-    temporal_embeddings = inference(str(audio_path))
+    temporal_embeddings = inference(audio_dict)
     
     # Convert to numpy
     embeddings_array = np.array(temporal_embeddings)
