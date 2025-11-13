@@ -21,8 +21,18 @@ android {
         buildConfigField("String", "API_BASE_URL", "\"https://web-production-f942c.up.railway.app\"")
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../selective-speaker-release-key.jks")
+            storePassword = "SelectiveSpeaker2024!"
+            keyAlias = "selective-speaker"
+            keyPassword = "SelectiveSpeaker2024!"
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
