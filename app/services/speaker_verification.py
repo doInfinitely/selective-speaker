@@ -165,12 +165,33 @@ def extract_embedding_from_segment(audio_path: Path, start_ms: int, end_ms: int,
     
     logger.info(f"Extracting embedding for speaker {speaker_label} from {audio_path} [{start_ms}ms-{end_ms}ms]")
     
-    # Create a pyannote Segment and use crop parameter
-    from pyannote.core import Segment
-    segment = Segment(start_ms / 1000.0, end_ms / 1000.0)
+    # Load audio manually and crop to segment
+    import soundfile as sf
+    import torch
+    
+    # Load full audio
+    waveform, sample_rate = sf.read(str(audio_path))
+    
+    # Convert to mono if needed
+    if waveform.ndim > 1:
+        waveform = waveform[:, 0]
+    
+    # Crop to segment
+    start_sample = int(start_ms * sample_rate / 1000)
+    end_sample = int(end_ms * sample_rate / 1000)
+    segment_waveform = waveform[start_sample:end_sample]
+    
+    # Convert to torch tensor
+    waveform_tensor = torch.from_numpy(segment_waveform).unsqueeze(0).float()
+    
+    # Create audio dict
+    audio_dict = {
+        "waveform": waveform_tensor,
+        "sample_rate": sample_rate
+    }
     
     # Extract embedding for this specific segment (returns temporal embeddings)
-    temporal_embeddings = inference.crop(str(audio_path), segment)
+    temporal_embeddings = inference(audio_dict)
     
     # Convert to numpy
     embeddings_array = np.array(temporal_embeddings)
