@@ -40,6 +40,7 @@ async def reverse_geocode(lat: float, lon: float) -> Optional[str]:
             
             if response.status_code == 200:
                 data = response.json()
+                logger.debug(f"Geocoding response for ({lat}, {lon}): {data}")
                 
                 # Try to get structured address for better formatting
                 address_data = data.get("address", {})
@@ -70,21 +71,38 @@ async def reverse_geocode(lat: float, lon: float) -> Optional[str]:
                 if state:
                     parts.append(state)
                 
+                # If we built a clean address from structured data, use it
                 if parts:
                     address = ", ".join(parts[:3])  # Limit to 3 parts for brevity
-                    logger.debug(f"Geocoded ({lat}, {lon}) -> {address}")
+                    logger.info(f"Geocoded ({lat}, {lon}) -> {address}")
                     return address
-                else:
-                    # Fallback to display_name if structured data not available
-                    display_name = data.get("display_name")
-                    if display_name:
-                        address_parts = display_name.split(", ")
-                        address = ", ".join(address_parts[:3])
-                        logger.debug(f"Geocoded ({lat}, {lon}) -> {address}")
-                        return address
+                
+                # Fallback to display_name if structured data not available
+                display_name = data.get("display_name")
+                if display_name:
+                    # Clean up the display name
+                    address_parts = display_name.split(", ")
                     
-                    logger.warning(f"No address found for ({lat}, {lon})")
-                    return None
+                    # Try to merge house number with street if they're separate
+                    cleaned_parts = []
+                    i = 0
+                    while i < len(address_parts):
+                        part = address_parts[i].strip()
+                        
+                        # If this looks like a house number and next part exists, combine them
+                        if i + 1 < len(address_parts) and part.isdigit():
+                            cleaned_parts.append(f"{part} {address_parts[i + 1].strip()}")
+                            i += 2
+                        else:
+                            cleaned_parts.append(part)
+                            i += 1
+                    
+                    address = ", ".join(cleaned_parts[:3])
+                    logger.info(f"Geocoded ({lat}, {lon}) -> {address} (from display_name)")
+                    return address
+                
+                logger.warning(f"No address found for ({lat}, {lon}): {data}")
+                return None
             else:
                 logger.warning(f"Geocoding failed with status {response.status_code}")
                 return None
