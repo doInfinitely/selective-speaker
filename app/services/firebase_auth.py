@@ -100,6 +100,10 @@ def verify_id_token(id_token: str) -> Optional[dict]:
         return None
 
 
-# Initialize on module import
-initialize_firebase()
+# Initialize on module import (safe to fail in development)
+try:
+    initialize_firebase()
+except Exception as e:
+    logger.error(f"Firebase initialization failed on import: {e}")
+    _firebase_app = None
 

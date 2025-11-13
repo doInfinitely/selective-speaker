@@ -1,7 +1,23 @@
 from fastapi import FastAPI
 from app.routes import enrollment, chunks, utterances, webhooks, audio
+from app.db import Base, engine
+from app import models
+from loguru import logger
 
 app = FastAPI(title="Selective Speaker Backend", version="0.1.0")
+
+
+@app.on_event("startup")
+def startup_event():
+    """Initialize database tables on startup."""
+    try:
+        logger.info("📊 Creating database tables...")
+        Base.metadata.create_all(engine)
+        logger.info("✅ Database tables created successfully!")
+    except Exception as e:
+        logger.error(f"❌ Failed to create database tables: {e}")
+        raise
+
 
 app.include_router(enrollment.router)
 app.include_router(chunks.router)
