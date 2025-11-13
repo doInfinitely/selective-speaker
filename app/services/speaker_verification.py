@@ -64,17 +64,26 @@ def extract_embedding(audio_path: Path) -> np.ndarray:
     import soundfile as sf
     import torch
     
-    waveform, sample_rate = sf.read(str(audio_path))
+    try:
+        waveform, sample_rate = sf.read(str(audio_path))
+        logger.info(f"Soundfile loaded audio successfully: {waveform.shape}, sr={sample_rate}")
+    except Exception as e:
+        logger.error(f"Failed to load audio with soundfile: {e}")
+        raise
     
     # Convert to torch tensor and ensure correct shape (channel, time)
-    if waveform.ndim == 1:
-        # Mono audio - add channel dimension
-        waveform_tensor = torch.from_numpy(waveform).unsqueeze(0).float()
-    else:
-        # Stereo - take first channel and add dimension
-        waveform_tensor = torch.from_numpy(waveform[:, 0]).unsqueeze(0).float()
-    
-    logger.debug(f"Loaded audio: shape={waveform_tensor.shape}, sample_rate={sample_rate}")
+    try:
+        if waveform.ndim == 1:
+            # Mono audio - add channel dimension
+            waveform_tensor = torch.from_numpy(waveform).unsqueeze(0).float()
+        else:
+            # Stereo - take first channel and add dimension
+            waveform_tensor = torch.from_numpy(waveform[:, 0]).unsqueeze(0).float()
+        
+        logger.info(f"Created torch tensor: shape={waveform_tensor.shape}, dtype={waveform_tensor.dtype}, device={waveform_tensor.device}")
+    except Exception as e:
+        logger.error(f"Failed to create torch tensor: {e}")
+        raise
     
     # Create audio dict that pyannote expects
     audio_dict = {
@@ -82,9 +91,17 @@ def extract_embedding(audio_path: Path) -> np.ndarray:
         "sample_rate": sample_rate
     }
     
+    logger.info(f"Calling pyannote inference with audio dict: waveform shape={audio_dict['waveform'].shape}, sr={audio_dict['sample_rate']}")
+    
     # Use pyannote Inference API with preloaded audio
     # Returns temporal embeddings (one per sliding window)
-    temporal_embeddings = inference(audio_dict)
+    try:
+        temporal_embeddings = inference(audio_dict)
+    except Exception as e:
+        logger.error(f"Inference failed with audio dict: {e}")
+        logger.info("Trying alternative: passing file path directly")
+        # Fallback to file path if dict doesn't work
+        temporal_embeddings = inference(str(audio_path))
     
     # Convert to numpy
     embeddings_array = np.array(temporal_embeddings)
