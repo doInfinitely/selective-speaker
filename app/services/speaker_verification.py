@@ -33,12 +33,13 @@ def get_inference_pipeline():
                 "3. Add HUGGINGFACE_TOKEN=your_token to .env"
             )
         
+        # Login to HuggingFace hub first
+        from huggingface_hub import login
+        login(token=settings.HUGGINGFACE_TOKEN)
+        
         # Use Inference API instead of raw Model (handles version mismatches better)
         from pyannote.audio import Inference
-        _inference_pipeline = Inference(
-            "pyannote/embedding",
-            token=settings.HUGGINGFACE_TOKEN
-        )
+        _inference_pipeline = Inference("pyannote/embedding")
         
         logger.info("Speaker embedding inference pipeline loaded successfully")
     
