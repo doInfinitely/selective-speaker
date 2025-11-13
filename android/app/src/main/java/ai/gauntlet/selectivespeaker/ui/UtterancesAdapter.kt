@@ -34,6 +34,7 @@ class UtterancesAdapter(
             binding.textViewUtterance.text = utterance.text
             binding.textViewDuration.text = "${(utterance.end_ms - utterance.start_ms) / 1000.0}s"
             binding.textViewTimestamp.text = utterance.timestamp ?: ""
+            binding.textViewAddress.text = utterance.address ?: "Location unavailable"
             
             binding.buttonPlay.setOnClickListener {
                 onPlayClick(utterance)
